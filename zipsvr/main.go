@@ -1,10 +1,21 @@
 package main
 
-import "fmt"
-import "net/http"
-import "log"
-import "runtime"
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"runtime"
+	"strings"
+
+	"github.com/abourn/info344-in-class/zipsvr/handlers"
+	"github.com/abourn/info344-in-class/zipsvr/models"
+)
+
+const zipsPath = "/zips/"
+
+// import models package
 
 /*
 	helloHandler
@@ -13,7 +24,6 @@ import "encoding/json"
 	memoryHandler
 		heap = general ram
 		stack = function in the ram
-
 	main
 		mux is the thing that decides which function to call
 		mux.HanldeFunc specifies which function at which resource path
@@ -37,10 +47,39 @@ func memoryHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
+	addr := os.Getenv("ADDR")
+	// if ADDR not supplied, let's default to somethign
+	if len(addr) == 0 {
+		addr = ":80" // accept communications from any computer
+	}
+
+	zips, err := models.LoadZips("zips.csv")
+	if err != nil {
+		log.Fatal("error loading zips: %v", err) // exits process. crashes your server. don't do this inside HTTP handler stuff lol
+	}
+	log.Printf("loaded %d zips", len(zips))
+
+	// let's create a map so that we can get the zip codes for Seattle
+
+	cityIndex := models.ZipIndex{} // because we declared ZipIndex in models package
+	for _, z := range zips {
+		cityLower := strings.ToLower(z.City)                   // make sure lowercase version
+		cityIndex[cityLower] = append(cityIndex[cityLower], z) // ZipIndex is a map from string to slice of Zips, so we access the underlying slice with cityIndex[cityLower], and then appending the pointer of the Zip to that slice
+	}
+
 	// fmt.Println("Hello World!")
 	mux := http.NewServeMux()
 	mux.HandleFunc("/hello", helloHandler) // say what func to call when request to /hello
 	mux.HandleFunc("/memory", memoryHandler)
-	fmt.Printf("Server is Listening at http://localhost:4000\n")
-	log.Fatal(http.ListenAndServe("localhost:4000", mux))
+
+	cityHandler := &handlers.CityHandler{
+		Index:      cityIndex,
+		PathPrefix: zipsPath,
+	}
+
+	mux.Handle(zipsPath, cityHandler)
+
+	fmt.Printf("Server is Listening at http://%s\n", addr)
+	log.Fatal(http.ListenAndServe(addr, mux))
 }
