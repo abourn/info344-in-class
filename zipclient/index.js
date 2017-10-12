@@ -10,7 +10,13 @@ var stateSelect = document.querySelector(".stateSelect");
 
 btn.addEventListener("click", function() {
 	var txt = input.value;
-	var url = "http://127.0.0.1:4000/zips/" + txt
+	var url = "http://127.0.0.1:80/zips/" + txt
+	while (zipSelect.hasChildNodes()) {
+		zipSelect.removeChild(zipSelect.lastChild);
+	}
+	while (stateSelect.hasChildNodes()) {
+		stateSelect.removeChild(stateSelect.lastChild);
+	}
 	fetch(url)
 	.then(function(resp) {
 		console.log(resp);
